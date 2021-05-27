@@ -26,7 +26,7 @@ class Block {
     /**
      *  validate() method will validate if the block has been tampered or not.
      *  Been tampered means that someone from outside the application tried to change
-     *  values in the block data as a consecuence the hash of the block should be different.
+     *  values in the block data as a consequence the hash of the block should be different.
      *  Steps:
      *  1. Return a new promise to allow the method be called asynchronous.
      *  2. Save the in auxiliary variable the current hash of the block (`this` represent the block object)
@@ -37,15 +37,26 @@ class Block {
      */
     validate() {
         let self = this;
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             // Save in auxiliary variable the current block hash
-                                            
+            let temporaryHash = self.hash;                                 
             // Recalculate the hash of the Block
+            let temporaryBlock = {
+                hash: null,
+                height: self.height,
+                body: self.body,
+                time: self.time,
+                previousBlockHash: self.previousBlockHash
+            }
             // Comparing if the hashes changed
-            // Returning the Block is not valid
-            
-            // Returning the Block is valid
-
+            let calculatedHash = SHA256(JSON.stringify(temporaryBlock)).toString();
+            if (temporaryHash != calculatedHash) {
+                // Returning the Block is not valid
+                resolve(false);
+            } else { 
+                // Returning the Block is valid 
+                resolve(true);
+            }
         });
     }
 
@@ -59,14 +70,27 @@ class Block {
      *     or Reject with an error.
      */
     getBData() {
-        // Getting the encoded data saved in the Block
-        // Decoding the data to retrieve the JSON representation of the object
+        let self = this
         // Parse the data to an object to be retrieve.
-
         // Resolve with the data if the object isn't the Genesis block
-
+        return new Promise(async (resolve, reject)=>{
+            if (self.height == 0) {
+                resolve("This is the Genesis Block");
+            }
+            // Getting the encoded data saved in the Block
+            let encodedData = this.body;
+            // Decoding the data to retrieve the JSON representation of the object
+            let decodedData = hex2ascii(encodedData);
+            // Parse the data to an object to be retrieve.
+            let dataObject = JSON.parse(decodedData);
+            // Resolve with the data if the object isn't the Genesis block
+            if (dataObject) {
+                resolve(dataObject);
+            } else {
+                reject(Error("The Block has no data."))
+            }
+        })
     }
-
 }
 
 module.exports.Block = Block;                    // Exposing the Block class as a module
