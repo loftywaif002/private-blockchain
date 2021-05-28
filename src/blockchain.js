@@ -79,11 +79,15 @@ class Blockchain {
             // Update the Height of the Chain
             self.height += 1;
             
-            if (self.chain[self.height] == block) {
-                resolve();
-            } else {
-                reject(Error("Block was not added."));
-            }
+            self.validateChain()
+                .then(errorLog => {
+                    if (errorLog.length > 0) {
+                        self.chain.pop();
+                        reject(errorLog);
+                    } else {
+                        resolve(block);
+                    }
+             });
         });
     }
 
@@ -181,16 +185,16 @@ class Blockchain {
      */
     getStarsByWalletAddress (address) {
         let self = this;
-        let stars = [];
         return new Promise((resolve, reject) => {
-            self.chain.forEach(function(block) {
-                block.getBData().then(data => {
-                    if (data.owner == address) {
-                        stars.push(data);
-                    }
-                });
-            });
-            resolve(stars);
+            Promise.all(self.chain.map(block => block.getBData()))
+                .then((decodedBlocks) => {
+                    const stars = decodedBlocks
+                        .filter(block => block && block.owner === address)
+                        .map(block => block.star);
+
+                    resolve(stars);
+                })
+                .catch(error => reject(error));
         });
     }
 
@@ -204,31 +208,36 @@ class Blockchain {
         let self = this;
         let errorLog = [];
         return new Promise(async (resolve, reject) => {
-            if (self.height > 0) {
-                for (var i = 1; i <= self.height; i++) {
-                    let block = self.chain[i];
-                    let validation = await block.validate();
-                    if (!validation){
-                        console.log("Error occurred while validating data");
-                    } else if (block.previousBlockHash != self.chain[i-1].hash) {
-                        console.log("Error with previous block's hash");
+            // Go through each block and make sure stored hash of
+            // previous block matches actual hash of previous block
+            let validatePromises = [];
+            self.chain.forEach((block, index) => {
+                if (block.height > 0) {
+                    const previousBlock = self.chain[index - 1];
+                    if (block.previousBlockHash !== previousBlock.hash) {
+                        const errorMessage = `Block ${index} previousBlockHash set to ${block.previousBlockHash}, but actual previous block hash was ${previousBlock.hash}`;
+                        errorLog.push(errorMessage);
                     }
                 }
-                if (errorLog) {
+
+                // Store promise to validate each block
+                validatePromises.push(block.validate());
+            });
+
+            // Collect results of each block's validate call
+            Promise.all(validatePromises)
+                .then(validatedBlocks => {
+                    validatedBlocks.forEach((valid, index) => {
+                        if (!valid) {
+                            const invalidBlock = self.chain[index];
+                            const errorMessage = `Block ${index} hash (${invalidBlock.hash}) is invalid`;
+                            errorLog.push(errorMessage);
+                        }
+                    });
+
                     resolve(errorLog);
-                } else {
-                    resolve("Chain is valid.");
-                }
-            } else {
-                reject(Error("Could not validate chain.")).catch(error => {
-                    console.log('caught', error.message);
                 });
-            }
-        }).then(validationSuccess => {
-            console.log(validationSuccess);
-        }).catch(validationFailed => {
-            console.log(validationFailed);
-        });
+        })
     }
 
 }

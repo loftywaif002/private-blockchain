@@ -40,6 +40,15 @@
 				"url": null
 			},
 			"response": []
+		},
+		{
+			"name": "ValidateChain",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": null
+			},
+			"response": []
 		}
 	]
 }
